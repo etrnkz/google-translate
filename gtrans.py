@@ -2,7 +2,6 @@
 #2015 E.C
 import requests 
 from bs4 import BeautifulSoup 
-from reques import  headers,  cookies
 
 
 class Translator ( ):
