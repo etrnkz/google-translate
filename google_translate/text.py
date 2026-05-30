@@ -1,86 +1,79 @@
-"""Text translation module for Google Translate."""
-
-import requests
+import time
 import json
-import urllib.parse
+from ._browser import make_page, navigate
+from .text_direct import translate_text_direct
 
 
-def translate_text(text, source_lang="auto", target_lang="am", cookies=None, headers=None):
-    """
-    Translate text using Google Translate API.
-    
-    Args:
-        text (str): Text to translate
-        source_lang (str): Source language code (default: "auto")
-        target_lang (str): Target language code (default: "am")
-        cookies (dict): Optional cookies for the request
-        headers (dict): Optional headers for the request
-        
-    Returns:
-        dict: Translation result containing original and translated text
-    """
-    # Construct the Inner JSON structure
-    inner_data = [
-        [text, source_lang, target_lang, 1, None, 2],
-        []
-    ]
-    
-    inner_json_string = json.dumps(inner_data)
-    
-    # Construct the Outer RPC structure
-    outer_data = [
-        [
-            ["MkEWBc", inner_json_string, None, "generic"]
-        ]
-    ]
-    
-    outer_json_string = json.dumps(outer_data)
-    
-    # Prepare the Form Data
-    form_data = {'f.req': outer_json_string}
-    encoded_query = urllib.parse.urlencode(form_data)
-    
-    # Default headers if not provided
-    if headers is None:
-        headers = {
-            'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-    
-    # Make the request
-    response = requests.post(
-        'https://translate.google.com/_/TranslateWebserverUi/data/batchexecute',
-        cookies=cookies,
-        headers=headers,
-        data=encoded_query
-    )
-    
-    return parse_translate_response(response.text)
+def translate_text(text, source_lang="auto", target_lang="es", mode="browser", headless=True, cookies=None, headers=None):
+    if mode == "direct":
+        return translate_text_direct(text, source_lang, target_lang)
 
-
-def parse_translate_response(raw_text):
-    """Parse the Google Translate API response."""
-    if raw_text.startswith(")]}'"):
-        clean_json_str = raw_text.split("\n", 1)[1]
-    else:
-        clean_json_str = raw_text
-    
+    page = make_page(headless=headless)
     try:
-        outer_data = json.loads(clean_json_str)
-        inner_json_str = outer_data[0][2]
-        inner_data = json.loads(inner_json_str)
-        
-        result_block = inner_data[1]
-        original_text = result_block[4][0]
-        target_lang = result_block[1]
-        source_lang = result_block[3]
-        translated_text = result_block[0][0][5][0][0]
-        
+        navigate(page, 'https://translate.google.com/?sl=%s&tl=%s&op=translate' % (source_lang, target_lang))
+
+        textarea = page.ele('css:textarea')
+        if not textarea:
+            return {"error": "Could not find input textarea"}
+
+        textarea.click()
+        time.sleep(0.3)
+        textarea.input(text)
+        time.sleep(4)
+
+        raw = page.run_js("""
+            const allEls = document.querySelectorAll('[jsname]');
+            const data = {};
+            for (const el of allEls) {
+                const jsname = el.getAttribute('jsname');
+                const t = el.textContent.trim();
+                if (t && t.length > 0 && t.length < 500) {
+                    if (!data[jsname]) data[jsname] = [];
+                    if (data[jsname].indexOf(t) === -1)
+                        data[jsname].push(t);
+                }
+            }
+            return JSON.stringify(data);
+        """)
+
+        parsed = json.loads(raw)
+
+        translated = ''
+        transliteration = ''
+        suggestions = []
+
+        if 'W297wb' in parsed and parsed['W297wb']:
+            translated = parsed['W297wb'][0]
+
+        if 'jTaUub' in parsed and parsed['jTaUub']:
+            transliteration = parsed['jTaUub'][0]
+        if not transliteration and 'toZopb' in parsed and parsed['toZopb']:
+            transliteration = parsed['toZopb'][0]
+
+        if 'lKng5e' in parsed and parsed['lKng5e']:
+            for s in parsed['lKng5e']:
+                if s != text and s != translated:
+                    suggestions.append(s)
+
+        detected_source = source_lang
+        if source_lang == 'auto':
+            if 'k0o5Tb' in parsed and parsed['k0o5Tb']:
+                for k in parsed['k0o5Tb']:
+                    if k != 'Detect language':
+                        detected_source = k.replace(' - Detected', '')
+                        break
+
         return {
-            "original": original_text,
-            "translated": translated_text,
-            "source_lang": source_lang,
-            "target_lang": target_lang
+            "original": text,
+            "translated": translated,
+            "source_lang": detected_source if source_lang == 'auto' else source_lang,
+            "target_lang": target_lang,
+            "source_transliteration": None,
+            "target_transliteration": transliteration or None,
+            "suggestions": suggestions or None
         }
-    except (IndexError, KeyError, json.JSONDecodeError, TypeError) as e:
-        return {"error": f"Error parsing response: {e}"}
+
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        page.quit()

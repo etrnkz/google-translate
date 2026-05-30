@@ -1,95 +1,87 @@
 """Example usage of the google_translate package."""
 
-from google_translate import translate_text, translate_image, translate_document, translate_voice
+from google_translate import (
+    translate_text,
+    translate_image,
+    translate_document,
+    translate_website,
+    translate_voice,
+)
 
 
-def example_text_translation():
-    """Example of text translation."""
-    print("=== Text Translation Example ===")
-    
-    result = translate_text(
-        text="Hello, how are you?",
-        source_lang="en",
-        target_lang="es"
-    )
-    
-    if "error" not in result:
-        print(f"Original: {result['original']}")
-        print(f"Translated: {result['translated']}")
-        print(f"From {result['source_lang']} to {result['target_lang']}")
-    else:
-        print(f"Error: {result['error']}")
+def example_text_browser():
+    result = translate_text("Hello, how are you?", "en", "es")
+    print("=== Text (Browser, Headless) ===")
+    print(f"Original: {result['original']}")
+    print(f"Translated: {result['translated']}")
+    print(f"Source: {result['source_lang']} -> {result['target_lang']}")
+    if result.get('suggestions'):
+        print(f"Suggestions: {result['suggestions']}")
     print()
 
 
-def example_image_translation():
-    """Example of image translation."""
-    print("=== Image Translation Example ===")
-    
-    # Note: You need to provide an actual image path
-    image_path = "path/to/your/image.png"
-    
-    result = translate_image(
-        image_path=image_path,
-        source_lang="auto",
-        target_lang="es"
-    )
-    
-    if "error" not in result:
-        print(f"Status Code: {result['status_code']}")
-        print("Translation successful!")
-    else:
-        print(f"Error: {result['error']}")
+def example_text_browser_headed():
+    result = translate_text("Hello", "en", "ru", headless=False)
+    print("=== Text (Browser, Headed — shows window) ===")
+    print(f"Translated: {result['translated']}")
+    if result.get('target_transliteration'):
+        print(f"Transliteration: {result['target_transliteration']}")
     print()
 
 
-def example_document_translation():
-    """Example of document translation."""
-    print("=== Document Translation Example ===")
-    
-    # Note: You need to provide an actual document path
-    doc_path = "path/to/your/document.pdf"
-    
-    result = translate_document(
-        file_path=doc_path,
-        source_lang="auto",
-        target_lang="am"
-    )
-    
-    if "error" not in result:
-        print(f"Status Code: {result['status_code']}")
-        print("Translation successful!")
-    else:
-        print(f"Error: {result['error']}")
+def example_text_direct():
+    result = translate_text("Hello", "auto", "am", mode="direct")
+    print("=== Text (Direct HTTP — no browser) ===")
+    print(f"Translated: {result['translated']}")
+    print(f"Auto-detected: {result['source_lang']}")
     print()
 
 
-def example_voice_translation():
-    """Example of voice translation."""
-    print("=== Voice Translation Example ===")
-    
-    result = translate_voice(
-        text="I love you more than anything",
-        source_lang="en",
-        target_lang="am"
-    )
-    
+def example_image():
+    result = translate_image("path/to/image.png", "auto", "es")
+    if result.get('success'):
+        with open("translated_image.png", "wb") as f:
+            f.write(result['image_data'])
+        print(f"Translated image saved ({result['translated_size']} bytes)")
+    else:
+        print(f"Error: {result.get('error')}")
+    print()
+
+
+def example_document():
+    result = translate_document("path/to/document.pdf", "auto", "es")
+    print("=== Document ===")
+    print(result)
+    print()
+
+
+def example_website():
+    result = translate_website("https://example.com", "auto", "es")
+    if result.get('success'):
+        print(f"Title: {result['title']}")
+        print(f"URL: {result['url']}")
+        print(f"HTML: {len(result['html'])} chars")
+    else:
+        print(f"Error: {result.get('error')}")
+    print()
+
+
+def example_voice():
+    result = translate_voice("hello", "en", "es")
     if result['audio_data']:
-        # Save the audio file
-        output_file = "output_audio.mp3"
-        with open(output_file, "wb") as f:
+        with open("output.mp3", "wb") as f:
             f.write(result['audio_data'])
-        print(f"Audio saved to {output_file}")
-        print(f"Text: {result['text']}")
-        print(f"From {result['source_lang']} to {result['target_lang']}")
+        print("Audio saved to output.mp3")
     else:
         print("Failed to generate audio")
     print()
 
 
 if __name__ == "__main__":
-    # Run examples
-    example_text_translation()
-    # example_image_translation()  # Uncomment and provide image path
-    # example_document_translation()  # Uncomment and provide document path
-    # example_voice_translation()  # Uncomment to generate audio
+    example_text_browser()
+    # example_text_browser_headed()
+    # example_text_direct()
+    # example_image()
+    # example_document()
+    # example_website()
+    # example_voice()
