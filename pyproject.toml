@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "google-translate"
+version = "0.3.0"
+description = "Python client for Google Translate — text, image, document, website, and voice translation"
+readme = "README.md"
+authors = [{ name = "etrnkz" }]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.25.0",
+    "DrissionPage>=4.0.0",
+]
+keywords = ["google-translate", "translation", "nlp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+google-translate = "google_translate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["google_translate*"]
